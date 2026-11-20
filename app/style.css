@@ -1,0 +1,191 @@
+/* Vice City Cover Studio — dark neon UI. System fonts only, nothing loaded in. */
+* { box-sizing: border-box; }
+
+:root {
+  --bg: #12041f;
+  --bg2: #1e0733;
+  --panel: #241040;
+  --line: #4a2270;
+  --text: #f5ecff;
+  --muted: #c9aee8;
+  --pink: #ff2e88;
+  --orange: #ff7a18;
+  --yellow: #ffd319;
+  --teal: #00e5ff;
+}
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: linear-gradient(180deg, var(--bg) 0%, #1a0530 55%, #2b0a33 100%);
+  color: var(--text);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+}
+
+.top {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 20px 6px;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.palm-mark { width: 54px; height: 54px; flex: none; }
+
+.top h1 {
+  margin: 0;
+  font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  font-stretch: condensed;
+  font-weight: 900;
+  font-size: 30px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--yellow), var(--pink) 55%, var(--orange));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.top h1 span { font-size: 18px; letter-spacing: 3px; }
+
+.top p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+
+main {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 12px 20px;
+}
+
+.stage { flex: 1 1 auto; min-width: 0; text-align: center; }
+
+#cover {
+  width: min(100%, 56vh);
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  border-radius: 6px;
+  box-shadow: 0 0 0 3px #ff2e88, 0 0 34px rgba(255, 46, 136, 0.45), 0 18px 50px rgba(0, 0, 0, 0.55);
+  cursor: crosshair;
+  touch-action: none;
+  background: #2b1055;
+}
+
+#status { color: var(--yellow); font-size: 14px; min-height: 1.2em; margin: 10px 0 2px; }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+
+.controls {
+  flex: 0 0 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.group {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.group h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--yellow);
+}
+
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.field { display: block; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.field:last-child { margin-bottom: 0; }
+.field input[type="text"] {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #160829;
+  color: var(--text);
+  font-size: 15px;
+}
+.field input[type="text"]:focus { outline: 2px solid var(--pink); border-color: var(--pink); }
+.field input[type="range"] { width: 100%; margin-top: 6px; accent-color: var(--pink); }
+
+button {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: #3a1660;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--pink); background: #4a1d78; }
+button:focus-visible { outline: 2px solid var(--yellow); }
+
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg button { flex: 1 1 auto; padding: 8px 6px; font-size: 13px; }
+.seg button.on {
+  background: linear-gradient(90deg, var(--pink), var(--orange));
+  border-color: transparent;
+  color: #fff;
+  font-weight: 700;
+}
+
+#btn-fillall { width: 100%; margin-top: 10px; }
+
+.export {
+  width: 100%;
+  margin-top: 12px;
+  padding: 13px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--pink), var(--orange));
+  border: none;
+  color: #fff;
+  box-shadow: 0 6px 22px rgba(255, 46, 136, 0.45);
+}
+.export:hover { filter: brightness(1.12); background: linear-gradient(90deg, var(--pink), var(--orange)); }
+
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+footer { max-width: 1240px; margin: 0 auto; padding: 4px 20px 22px; color: var(--muted); font-size: 12px; }
+
+/* Shot mode: the cover alone, no chrome — used by ?shot=cover. */
+body.shot-cover { background: #000; }
+body.shot-cover .top,
+body.shot-cover .controls,
+body.shot-cover footer,
+body.shot-cover #status,
+body.shot-cover .hint { display: none; }
+body.shot-cover main { display: block; padding: 0; max-width: none; }
+body.shot-cover #cover {
+  width: auto;
+  height: auto;
+  max-width: none;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  main { flex-direction: column; }
+  .controls { flex-basis: auto; width: 100%; }
+  #cover { width: min(100%, 78vw); }
+}

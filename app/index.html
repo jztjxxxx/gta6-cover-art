@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vice City Cover Studio — GTA 6 style cover art maker</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <svg class="palm-mark" viewBox="0 0 120 120" aria-hidden="true">
+    <path d="M58 118 Q56 70 66 34 Q70 30 72 34 Q64 72 70 118 Z" fill="#1c0533"/>
+    <path d="M66 36 Q30 8 6 22 Q34 26 62 44 Z" fill="#1c0533"/>
+    <path d="M66 36 Q48 2 20 6 Q46 16 62 42 Z" fill="#1c0533"/>
+    <path d="M68 34 Q84 2 112 10 Q88 20 72 42 Z" fill="#1c0533"/>
+    <path d="M68 36 Q104 12 120 30 Q92 34 72 44 Z" fill="#1c0533"/>
+    <circle cx="74" cy="40" r="5" fill="#1c0533"/>
+    <circle cx="62" cy="44" r="4" fill="#1c0533"/>
+  </svg>
+  <div>
+    <h1>VICE CITY <span>Cover Studio</span></h1>
+    <p>Turn any photo into a neon-sunset poster cover. Pick a photo, type a title, export a PNG.</p>
+  </div>
+</header>
+
+<main>
+  <section class="stage">
+    <canvas id="cover" width="1080" height="1080" aria-label="Cover preview"></canvas>
+    <p id="status" role="status">Loading sample photo…</p>
+    <p class="hint">Click a panel to select it, then drag inside it to move the photo.</p>
+  </section>
+
+  <aside class="controls">
+    <section class="group">
+      <h2>1 · Photo</h2>
+      <div class="row">
+        <button id="btn-add" type="button">Add photo…</button>
+        <button id="btn-sample" type="button" title="Load the second sample photo">Try pier photo</button>
+      </div>
+      <label class="field">Replace selected panel
+        <span class="row"><button id="btn-replace" type="button">Choose photo…</button></span>
+      </label>
+      <label class="field">Zoom selected panel
+        <input id="zoom" type="range" min="1" max="3" step="0.05" value="1">
+      </label>
+      <button id="btn-fillall" type="button">Fill all panels with this photo</button>
+      <input id="file-add" type="file" accept="image/*" class="file-input">
+      <input id="file-replace" type="file" accept="image/*" class="file-input">
+    </section>
+
+    <section class="group">
+      <h2>2 · Title</h2>
+      <label class="field">Caption
+        <input id="caption" type="text" value="VICE CITY" maxlength="40" autocomplete="off">
+      </label>
+      <label class="field">Subtitle (optional)
+        <input id="subtitle" type="text" value="WELCOME BACK TO" maxlength="48" autocomplete="off">
+      </label>
+    </section>
+
+    <section class="group">
+      <h2>3 · Layout</h2>
+      <div class="seg" id="layouts">
+        <button type="button" data-layout="hero3" class="on">Hero + 3</button>
+        <button type="button" data-layout="grid">Poster grid</button>
+        <button type="button" data-layout="full">Full bleed</button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>4 · Grade</h2>
+      <div class="seg" id="grades">
+        <button type="button" data-grade="sunset" class="on">Neon Sunset</button>
+        <button type="button" data-grade="vice">Vice Nights</button>
+        <button type="button" data-grade="golden">Golden Hour</button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>5 · Export size</h2>
+      <div class="seg" id="sizes">
+        <button type="button" data-size="square" class="on">1080 × 1080</button>
+        <button type="button" data-size="portrait">1080 × 1350</button>
+        <button type="button" data-size="wide">1920 × 1080</button>
+      </div>
+      <button id="btn-export" type="button" class="export">Export PNG</button>
+    </section>
+  </aside>
+</main>
+
+<footer>
+  <p>100% offline — your photos never leave this page. No logos, no fonts and no images are loaded from anywhere else.</p>
+</footer>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
