@@ -3,101 +3,98 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vice City Cover Studio — turn a photo into GTA 6 style cover art</title>
+<title>Neon Strip Cover Studio — turn any photo into GTA 6 style cover art</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="masthead">
-  <svg class="mark" viewBox="0 0 120 120" aria-hidden="true">
-    <path d="M60 118 Q58 76 68 40 Q72 36 74 40 Q66 78 72 118 Z" fill="#16042e"/>
-    <path d="M68 42 Q34 14 8 26 Q36 30 64 48 Z" fill="#16042e"/>
-    <path d="M68 42 Q52 8 24 12 Q50 20 64 46 Z" fill="#16042e"/>
-    <path d="M70 40 Q86 8 114 14 Q90 24 74 46 Z" fill="#16042e"/>
-    <path d="M70 42 Q106 16 120 34 Q94 38 74 48 Z" fill="#16042e"/>
-    <circle cx="76" cy="44" r="5" fill="#16042e"/>
-    <circle cx="64" cy="48" r="4" fill="#16042e"/>
-  </svg>
-  <div class="masthead-text">
-    <h1>Vice City <em>Cover Studio</em></h1>
-    <p>Your photo, a caption, one neon poster cover. Nothing uploads, nothing leaves this page.</p>
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="26" r="16" fill="#ff7a18"/>
+      <rect x="12" y="30" width="40" height="3" fill="#0d0218"/>
+      <rect x="12" y="37" width="40" height="3" fill="#0d0218"/>
+      <rect x="12" y="44" width="40" height="3" fill="#ff2e88"/>
+      <rect x="12" y="51" width="40" height="3" fill="#ffd319"/>
+    </svg>
+    <div>
+      <h1>Neon Strip <span>Cover Studio</span></h1>
+      <p>Photo in, poster cover out. Offline — nothing uploads.</p>
+    </div>
   </div>
+  <button type="button" class="export-btn export-top">Export PNG</button>
 </header>
 
-<div class="board">
-  <section class="preview">
+<main class="stage">
+  <div class="canvas-wrap">
     <canvas id="cover" width="1080" height="1080" aria-label="Cover preview"></canvas>
-    <p id="status" role="status">Loading sample photo…</p>
-    <p class="tip">Click a panel to pick it, then drag inside it to move the photo.</p>
-  </section>
+  </div>
+  <p id="status" role="status">Loading sample photos…</p>
+  <p class="hint">Click a panel to select it, then drag the photo inside it. The zoom slider zooms the selected panel.</p>
+</main>
 
-  <aside class="panel-box">
-    <section class="ctl">
-      <h2>1 · Photo</h2>
-      <div class="btn-row">
-        <button id="btn-add" type="button">Add photo…</button>
-        <button id="btn-sample" type="button" title="Load the second sample photo">Try pier photo</button>
-      </div>
-      <label class="lbl">Replace the picked panel
-        <span class="btn-row"><button id="btn-replace" type="button">Choose photo…</button></span>
-      </label>
-      <label class="lbl">Zoom the picked panel
-        <input id="zoom" type="range" min="1" max="3" step="0.05" value="1">
-      </label>
-      <button id="btn-fillall" type="button" class="wide">Fill all panels with this photo</button>
-      <input id="file-add" type="file" accept="image/*" class="hidden-file">
-      <input id="file-replace" type="file" accept="image/*" class="hidden-file">
-    </section>
+<section class="controls">
+  <div class="card">
+    <h2>Photo</h2>
+    <button id="btn-add" type="button">Add photo…</button>
+    <button id="btn-sample" type="button">Load pier sample</button>
+    <button id="btn-replace" type="button">Replace selected panel…</button>
+    <button id="btn-fillall" type="button">Fill every panel with selected photo</button>
+    <label class="field">Zoom selected panel
+      <input id="zoom" type="range" min="1" max="3" step="0.05" value="1">
+    </label>
+    <input id="file-add" type="file" accept="image/*" hidden>
+    <input id="file-replace" type="file" accept="image/*" hidden>
+  </div>
 
-    <section class="ctl">
-      <h2>2 · Title</h2>
-      <label class="lbl">Caption
-        <input id="caption" type="text" value="VICE CITY" maxlength="40" autocomplete="off">
-      </label>
-      <label class="lbl">Subtitle (optional)
-        <input id="subtitle" type="text" value="WELCOME BACK TO" maxlength="48" autocomplete="off">
-      </label>
-    </section>
+  <div class="card">
+    <h2>Words</h2>
+    <label class="field">Title
+      <input id="caption" type="text" value="VICE CITY" maxlength="40" autocomplete="off">
+    </label>
+    <label class="field">Tagline
+      <input id="subtitle" type="text" value="WELCOME BACK TO" maxlength="48" autocomplete="off">
+    </label>
+  </div>
 
-    <section class="ctl">
-      <h2>3 · Layout</h2>
-      <div class="seg" id="layouts">
-        <button type="button" data-layout="hero3" class="on">Hero + 3</button>
-        <button type="button" data-layout="grid">Poster grid</button>
-        <button type="button" data-layout="full">Full bleed</button>
-      </div>
-    </section>
+  <div class="card">
+    <h2>Layout</h2>
+    <div class="choices" id="layouts">
+      <button type="button" data-layout="hero3" class="on">Hero strip + 3</button>
+      <button type="button" data-layout="grid">Four square</button>
+      <button type="button" data-layout="full">Full bleed</button>
+    </div>
+  </div>
 
-    <section class="ctl">
-      <h2>4 · Grade</h2>
-      <div class="seg" id="grades">
-        <button type="button" data-grade="sunset" class="on">Neon Sunset</button>
-        <button type="button" data-grade="vice">Vice Nights</button>
-        <button type="button" data-grade="golden">Golden Hour</button>
-        <button type="button" data-grade="noir">Noir Gold</button>
-      </div>
-    </section>
+  <div class="card">
+    <h2>Grade</h2>
+    <div class="choices" id="grades">
+      <button type="button" data-grade="sunset" class="on">Neon Sunset</button>
+      <button type="button" data-grade="vice">Vice Nights</button>
+      <button type="button" data-grade="golden">Golden Hour</button>
+      <button type="button" data-grade="noir">Noir Gold</button>
+    </div>
+  </div>
 
-    <section class="ctl">
-      <h2>5 · Frame</h2>
-      <div class="seg" id="frames">
-        <button type="button" data-frame="framed" class="on">Poster frame</button>
-        <button type="button" data-frame="edge">Edge to edge</button>
-      </div>
-    </section>
+  <div class="card">
+    <h2>Frame</h2>
+    <div class="choices" id="frames">
+      <button type="button" data-frame="framed" class="on">Poster frame</button>
+      <button type="button" data-frame="edge">Edge to edge</button>
+    </div>
+  </div>
 
-    <section class="ctl">
-      <h2>6 · Export size</h2>
-      <div class="seg" id="sizes">
-        <button type="button" data-size="square" class="on">1080 × 1080</button>
-        <button type="button" data-size="portrait">1080 × 1350</button>
-        <button type="button" data-size="wide">1920 × 1080</button>
-      </div>
-      <button id="btn-export" type="button" class="download">Export PNG</button>
-    </section>
-  </aside>
-</div>
+  <div class="card">
+    <h2>Export</h2>
+    <div class="choices" id="sizes">
+      <button type="button" data-size="square" class="on">1080 × 1080</button>
+      <button type="button" data-size="portrait">1080 × 1350</button>
+      <button type="button" data-size="wide">1920 × 1080</button>
+    </div>
+    <button type="button" class="export-btn">Export PNG</button>
+  </div>
+</section>
 
-<footer class="footnote">
+<footer>
   <p>Offline by design: photos are read with FileReader, the two sample photos ship with the app, and no request ever leaves the browser.</p>
 </footer>
 

@@ -4,10 +4,10 @@
 // Supported params: photo (boulevard|pier), caption, subtitle, layout,
 // grade, frame, size. Signals window.__shotReady once the scene is painted.
 
-const SCENE_PARAMS = [
+const SCENE_STEPS = [
   ['photo', async (api, value) => {
     const img = await api.loadSample(value);
-    api.state.panels = api.state.panels.map(() => ({ img, px: 0, py: 0, z: 1 }));
+    api.state.panels = api.state.panels.map(() => ({ img, fx: 0.5, fy: 0.5, zoom: 1 }));
   }],
   ['caption', (api, value) => api.setCaption(value)],
   ['subtitle', (api, value) => api.setSubtitle(value)],
@@ -17,7 +17,7 @@ const SCENE_PARAMS = [
   ['size', (api, value) => api.setSize(value)],
 ];
 
-export async function initShots(api) {
+export async function runShotScene(api) {
   const params = new URLSearchParams(location.search);
   const shot = params.get('shot');
   if (!shot) {
@@ -26,7 +26,7 @@ export async function initShots(api) {
   }
   await api.ready;
 
-  for (const [name, apply] of SCENE_PARAMS) {
+  for (const [name, apply] of SCENE_STEPS) {
     const value = params.get(name);
     if (value === null) continue;
     try {
