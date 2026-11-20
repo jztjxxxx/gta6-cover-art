@@ -1,6 +1,8 @@
-// Vice City Cover Studio — the cover painter.
-// Everything is drawn on one canvas, so the PNG a user exports carries the
-// whole look: neon backdrop, graded panels, palms, sun and title lettering.
+// Vice City Cover Studio — paints the poster cover on a canvas.
+// The whole look lives here: neon backdrop, graded photo panels, a slatted
+// sunset, palm silhouettes and the big condensed title. The editor in main.js
+// only holds state and forwards it; export draws through this same function,
+// so what you see is exactly what the PNG holds.
 
 export const LAYOUTS = {
   hero3: { label: 'Hero + 3', panels: 4 },
@@ -26,14 +28,57 @@ export const FRAMES = {
   edge: 'Edge to edge',
 };
 
-const TITLE_FONT = "'Arial Narrow','Helvetica Neue',Arial,sans-serif";
+const FONT = "'Arial Narrow','Helvetica Neue',Arial,sans-serif";
 
-/** Panel rectangles for a layout, in canvas pixels. The grid keeps its centre cell for the title. */
-export function panelRects(layout, W, H) {
-  const g = Math.max(4, Math.round(Math.min(W, H) * 0.012));
-  const m = Math.max(8, Math.round(Math.min(W, H) * 0.022));
+// One table drives every grade: the backdrop sky, the tint washed over each
+// photo, the blend mode for that tint, a flat wash on top, and the three
+// colours the title lettering is filled with.
+const GRADE_TABLE = {
+  sunset: {
+    sky: [[0, '#1d0640'], [0.42, '#6d28d9'], [0.68, '#db2777'], [1, '#f97316']],
+    tint: { diagonal: false, stops: [[0, 'rgba(255,41,117,0.24)'], [0.5, 'rgba(124,58,237,0.12)'], [1, 'rgba(255,138,0,0.28)']], blend: 'overlay' },
+    wash: 'rgba(255,110,40,0.08)',
+    title: ['#ffe45e', '#ff8a1e', '#ff2e88'],
+  },
+  vice: {
+    sky: [[0, '#02131f'], [0.4, '#155e75'], [0.7, '#86198f'], [1, '#f472b6']],
+    tint: { diagonal: true, stops: [[0, 'rgba(34,211,238,0.22)'], [0.5, 'rgba(168,85,247,0.10)'], [1, 'rgba(236,72,153,0.26)']], blend: 'overlay' },
+    wash: 'rgba(8,47,73,0.10)',
+    title: ['#67e8f9', '#c084fc', '#ec4899'],
+  },
+  golden: {
+    sky: [[0, '#1c0f02'], [0.42, '#7c2d12'], [0.7, '#ea580c'], [1, '#fbbf24']],
+    tint: { diagonal: false, stops: [[0, 'rgba(251,191,36,0.18)'], [1, 'rgba(234,88,12,0.28)']], blend: 'soft-light' },
+    wash: 'rgba(251,146,60,0.12)',
+    title: ['#fef3c7', '#fbbf24', '#ea580c'],
+  },
+  noir: {
+    sky: [[0, '#050505'], [0.45, '#1e1b4b'], [0.72, '#581c87'], [1, '#b45309']],
+    tint: { diagonal: false, stops: [[0, 'rgba(10,10,25,0.34)'], [0.55, 'rgba(88,28,135,0.12)'], [1, 'rgba(245,158,11,0.22)']], blend: 'soft-light' },
+    wash: 'rgba(245,200,90,0.09)',
+    title: ['#fef9c3', '#facc15', '#b45309'],
+  },
+};
+
+function gradeOf(name) {
+  return GRADE_TABLE[name] || GRADE_TABLE.sunset;
+}
+
+// ------------------------------------------------------------ geometry
+
+// Edge-to-edge mode drops the outer margin and the gutters entirely, so the
+// panels run to the cover's edge. Framed mode keeps a poster margin.
+function spacing(W, H, frame) {
+  if (frame === 'edge') return { g: 0, m: 0 };
+  const s = Math.min(W, H);
+  return { g: Math.max(4, Math.round(s * 0.01)), m: Math.max(8, Math.round(s * 0.02)) };
+}
+
+/** Panel rectangles for a layout, in canvas pixels. The grid reserves its middle cell for the title. */
+export function layoutRects(layout, W, H, frame) {
+  const { g, m } = spacing(W, H, frame);
   if (layout === 'hero3') {
-    const heroW = Math.round((W - 2 * m - g) * 0.62);
+    const heroW = Math.round((W - 2 * m - g) * 0.58);
     const sideX = m + heroW + g;
     const sideW = W - m - sideX;
     const smallH = Math.floor((H - 2 * m - 2 * g) / 3);
@@ -47,11 +92,11 @@ export function panelRects(layout, W, H) {
   if (layout === 'grid') {
     const cw = (W - 2 * m - 2 * g) / 3;
     const ch = (H - 2 * m - 2 * g) / 3;
-    const rects = [];
+    const out = [];
     for (let r = 0; r < 3; r++) {
       for (let c = 0; c < 3; c++) {
         if (r === 1 && c === 1) continue;
-        rects.push({
+        out.push({
           x: Math.round(m + c * (cw + g)),
           y: Math.round(m + r * (ch + g)),
           w: Math.round(cw),
@@ -59,15 +104,14 @@ export function panelRects(layout, W, H) {
         });
       }
     }
-    return rects;
+    return out;
   }
   return [{ x: m, y: m, w: W - 2 * m, h: H - 2 * m }];
 }
 
-/** The grid layout's centre title cell, using the same geometry as panelRects. */
-export function titleCellRect(W, H) {
-  const g = Math.max(4, Math.round(Math.min(W, H) * 0.012));
-  const m = Math.max(8, Math.round(Math.min(W, H) * 0.022));
+/** The grid layout's middle title cell, using the same geometry as layoutRects. */
+export function titleCellRect(W, H, frame) {
+  const { g, m } = spacing(W, H, frame);
   const cw = (W - 2 * m - 2 * g) / 3;
   const ch = (H - 2 * m - 2 * g) / 3;
   return {
@@ -78,277 +122,286 @@ export function titleCellRect(W, H) {
   };
 }
 
-// ---------------------------------------------------------------- film grain
+// ------------------------------------------------------------ grain
 
-let grainTile = null;
-function grain(ctx) {
-  if (grainTile) return grainTile;
+let grainPattern = null;
+function grainTile(ctx) {
+  if (grainPattern) return grainPattern;
   const tile = document.createElement('canvas');
-  tile.width = 128;
-  tile.height = 128;
+  tile.width = 96;
+  tile.height = 96;
   const g = tile.getContext('2d');
-  const pixels = g.createImageData(128, 128);
-  for (let i = 0; i < pixels.data.length; i += 4) {
+  const data = g.createImageData(96, 96);
+  for (let i = 0; i < data.data.length; i += 4) {
     const v = (Math.random() * 255) | 0;
-    pixels.data[i] = v;
-    pixels.data[i + 1] = v;
-    pixels.data[i + 2] = v;
-    pixels.data[i + 3] = 30;
+    data.data[i] = v;
+    data.data[i + 1] = v;
+    data.data[i + 2] = v;
+    data.data[i + 3] = 22;
   }
-  g.putImageData(pixels, 0, 0);
-  grainTile = ctx.createPattern(tile, 'repeat');
-  return grainTile;
+  g.putImageData(data, 0, 0);
+  grainPattern = ctx.createPattern(tile, 'repeat');
+  return grainPattern;
 }
 
-// ---------------------------------------------------------------- colour grades
+// ------------------------------------------------------------ grading
 
-const GRADE_TINTS = {
-  sunset: [
-    ['linear', 0, 'rgba(255,46,136,0.22)', 0.55, 'rgba(123,47,247,0.10)', 1, 'rgba(255,122,24,0.26)'],
-    'overlay',
-    'rgba(255,120,60,0.07)',
-  ],
-  vice: [
-    ['diagonal', 0, 'rgba(0,229,255,0.20)', 0.5, 'rgba(123,47,247,0.08)', 1, 'rgba(255,0,128,0.24)'],
-    'overlay',
-    'rgba(0,60,90,0.08)',
-  ],
-  golden: [
-    ['linear', 0, 'rgba(255,190,80,0.16)', 1, 'rgba(255,110,20,0.26)'],
-    'soft-light',
-    'rgba(255,170,40,0.10)',
-  ],
-  noir: [
-    ['linear', 0, 'rgba(20,8,40,0.30)', 0.5, 'rgba(90,60,10,0.10)', 1, 'rgba(255,200,90,0.20)'],
-    'soft-light',
-    'rgba(255,205,110,0.08)',
-  ],
-};
-
-const TITLE_GRADIENTS = {
-  sunset: ['#ffd319', '#ff7a18', '#ff2e88'],
-  vice: ['#7df9ff', '#b06bff', '#ff2e88'],
-  golden: ['#fff3b0', '#ffb347', '#ff7a18'],
-  noir: ['#f7e7b0', '#e8b64c', '#c98a1b'],
-};
-
-function gradeOverlay(ctx, rect, grade) {
+function gradePanel(ctx, rect, gradeName) {
+  const grade = gradeOf(gradeName);
   const { x, y, w, h } = rect;
-  const [tintSpec, blend, wash] = GRADE_TINTS[grade] || GRADE_TINTS.sunset;
-  const [kind, ...stops] = tintSpec;
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, y, w, h);
   ctx.clip();
-  const tint = kind === 'diagonal'
+  const tint = grade.tint.diagonal
     ? ctx.createLinearGradient(x, y, x + w, y + h)
     : ctx.createLinearGradient(x, y, x, y + h);
-  for (let i = 0; i < stops.length; i += 2) tint.addColorStop(stops[i], stops[i + 1]);
-  ctx.globalCompositeOperation = blend;
+  for (const [pos, colour] of grade.tint.stops) tint.addColorStop(pos, colour);
+  ctx.globalCompositeOperation = grade.tint.blend;
   ctx.fillStyle = tint;
   ctx.fillRect(x, y, w, h);
   ctx.globalCompositeOperation = 'source-over';
-  ctx.fillStyle = wash;
+  ctx.fillStyle = grade.wash;
   ctx.fillRect(x, y, w, h);
-  const vg = ctx.createRadialGradient(
-    x + w / 2, y + h / 2, Math.min(w, h) * 0.42,
-    x + w / 2, y + h / 2, Math.max(w, h) * 0.75,
+  const shade = ctx.createRadialGradient(
+    x + w / 2, y + h / 2, Math.min(w, h) * 0.45,
+    x + w / 2, y + h / 2, Math.max(w, h) * 0.78,
   );
-  vg.addColorStop(0, 'rgba(10,0,30,0)');
-  vg.addColorStop(1, 'rgba(10,0,30,0.32)');
-  ctx.fillStyle = vg;
+  shade.addColorStop(0, 'rgba(8,0,28,0)');
+  shade.addColorStop(1, 'rgba(8,0,28,0.28)');
+  ctx.fillStyle = shade;
   ctx.fillRect(x, y, w, h);
-  ctx.globalAlpha = 0.5;
-  ctx.fillStyle = grain(ctx);
+  ctx.globalAlpha = 0.45;
+  ctx.fillStyle = grainTile(ctx);
   ctx.fillRect(x, y, w, h);
   ctx.restore();
 }
 
-// ---------------------------------------------------------------- photo
+// ------------------------------------------------------------ photo
 
-function drawPhoto(ctx, img, rect, panel) {
+function paintPhoto(ctx, img, rect, panel) {
   const iw = img.naturalWidth || img.width;
   const ih = img.naturalHeight || img.height;
-  const scale = Math.max(rect.w / iw, rect.h / ih) * (panel.zoom || 1);
+  const scale = Math.max(rect.w / iw, rect.h / ih) * (panel.z || 1);
   const dw = iw * scale;
   const dh = ih * scale;
-  const ox = (dw - rect.w) * (((panel.ox || 0) + 1) / 2);
-  const oy = (dh - rect.h) * (((panel.oy || 0) + 1) / 2);
+  // px/py run -1..1: where the photo sits inside its frame once zoomed in.
+  const ox = (dw - rect.w) * (((panel.px || 0) + 1) / 2);
+  const oy = (dh - rect.h) * (((panel.py || 0) + 1) / 2);
   ctx.drawImage(img, rect.x - ox, rect.y - oy, dw, dh);
 }
 
-// ---------------------------------------------------------------- palms and sun
+// ------------------------------------------------------------ sun and palms
 
-function frond(ctx, cx, cy, angle, len, droop) {
-  // One wide, drooping leaf: base to tip along the frond direction, the two
-  // edges bulging apart across it, so the leaf reads as a palm frond.
+// A retro sun: a glowing disc with three slats cut out of its lower half,
+// drawn on a scratch canvas so the cut-outs never erase the cover behind it.
+function paintSun(ctx, cx, cy, r) {
+  const s = Math.ceil(r * 2.4);
+  const off = document.createElement('canvas');
+  off.width = s;
+  off.height = s;
+  const o = off.getContext('2d');
+  const ox = s / 2;
+  const oy = s / 2;
+  const glow = o.createRadialGradient(ox, oy, r * 0.1, ox, oy, r * 1.15);
+  glow.addColorStop(0, 'rgba(255,240,150,0.95)');
+  glow.addColorStop(0.5, 'rgba(255,140,60,0.8)');
+  glow.addColorStop(0.8, 'rgba(255,46,136,0.4)');
+  glow.addColorStop(1, 'rgba(255,46,136,0)');
+  o.fillStyle = glow;
+  o.beginPath();
+  o.arc(ox, oy, r * 1.15, 0, Math.PI * 2);
+  o.fill();
+  const disc = o.createLinearGradient(ox, oy - r, ox, oy + r);
+  disc.addColorStop(0, '#fff7ae');
+  disc.addColorStop(0.55, '#ffb347');
+  disc.addColorStop(1, '#ff2e88');
+  o.fillStyle = disc;
+  o.beginPath();
+  o.arc(ox, oy, r, 0, Math.PI * 2);
+  o.fill();
+  o.globalCompositeOperation = 'destination-out';
+  const slats = [[0.1, 0.05], [0.32, 0.07], [0.56, 0.1]];
+  for (const [from, thick] of slats) {
+    const y = oy + r * from;
+    o.fillRect(ox - r - 2, y, r * 2 + 4, r * thick);
+  }
+  ctx.drawImage(off, cx - s / 2, cy - s / 2);
+}
+
+function leaf(ctx, cx, cy, angle, len, droop) {
+  // One broad leaf: a curved spine with the two edges bowed out from it, so
+  // it reads as a palm leaf and not a spike.
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
-  const px = -dy;
-  const py = dx;
-  const w = len * 0.13;
+  const nx = -dy;
+  const ny = dx;
+  const half = len * 0.12;
   const tipX = cx + dx * len;
   const tipY = cy + dy * len + droop;
   ctx.beginPath();
   ctx.moveTo(cx, cy);
   ctx.quadraticCurveTo(
-    cx + dx * len * 0.4 - px * w * 0.9, cy + dy * len * 0.4 - py * w * 0.9 + droop * 0.2,
+    cx + dx * len * 0.35 - nx * half, cy + dy * len * 0.35 - ny * half + droop * 0.15,
     tipX, tipY,
   );
   ctx.quadraticCurveTo(
-    cx + dx * len * 0.55 + px * w * 1.1, cy + dy * len * 0.55 + py * w * 1.1 + droop * 0.65,
+    cx + dx * len * 0.6 + nx * half * 1.2, cy + dy * len * 0.6 + ny * half * 1.2 + droop * 0.7,
     cx, cy,
   );
   ctx.closePath();
   ctx.fill();
 }
 
-/** A stylised palm silhouette drawn from canvas paths — no artwork copied in. */
-export function drawPalm(ctx, x, y, s, flip, color) {
+/** A palm silhouette drawn from canvas paths — no artwork copied in. */
+export function drawPalm(ctx, x, y, s, flip, colour) {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(flip ? -s : s, s);
-  ctx.fillStyle = color;
+  ctx.fillStyle = colour;
+  // Trunk: wide at the base, tapering and leaning toward the crown.
   ctx.beginPath();
-  ctx.moveTo(-11, 0);
-  ctx.quadraticCurveTo(-6, -92, 20, -152);
-  ctx.quadraticCurveTo(26, -156, 30, -150);
-  ctx.quadraticCurveTo(14, -82, 13, 0);
+  ctx.moveTo(-13, 0);
+  ctx.quadraticCurveTo(-9, -70, 4, -128);
+  ctx.quadraticCurveTo(10, -152, 24, -160);
+  ctx.quadraticCurveTo(28, -156, 26, -148);
+  ctx.quadraticCurveTo(16, -96, 12, 0);
   ctx.closePath();
   ctx.fill();
-  const crownX = 25;
-  const crownY = -150;
-  const angles = [-2.75, -2.35, -1.95, -1.55, -1.15, -0.75, -0.35];
-  const lens = [118, 142, 158, 166, 158, 142, 118];
-  const droops = [58, 42, 26, 14, 26, 42, 58];
-  for (let i = 0; i < angles.length; i++) frond(ctx, crownX, crownY, angles[i], lens[i], droops[i]);
+  const crownX = 24;
+  const crownY = -158;
+  const angles = [-2.9, -2.55, -2.2, -1.85, -1.5, -1.15, -0.8, -0.45, -0.1];
+  const lens = [104, 128, 148, 162, 170, 162, 148, 128, 104];
+  const droops = [66, 50, 34, 20, 12, 20, 34, 50, 66];
+  for (let i = 0; i < angles.length; i++) leaf(ctx, crownX, crownY, angles[i], lens[i], droops[i]);
+  // A small cluster of coconuts under the crown.
   ctx.beginPath();
-  ctx.arc(crownX - 6, crownY + 8, 7, 0, Math.PI * 2);
-  ctx.arc(crownX + 8, crownY + 10, 6, 0, Math.PI * 2);
+  ctx.arc(crownX - 8, crownY + 6, 6, 0, Math.PI * 2);
+  ctx.arc(crownX + 4, crownY + 9, 6, 0, Math.PI * 2);
+  ctx.arc(crownX + 14, crownY + 4, 5, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
 
-function drawSun(ctx, cx, cy, r) {
-  const glow = ctx.createRadialGradient(cx, cy, r * 0.08, cx, cy, r);
-  glow.addColorStop(0, 'rgba(255,236,140,0.95)');
-  glow.addColorStop(0.45, 'rgba(255,150,50,0.85)');
-  glow.addColorStop(0.75, 'rgba(255,46,136,0.45)');
-  glow.addColorStop(1, 'rgba(255,46,136,0)');
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
+// ------------------------------------------------------------ title lettering
 
-// ---------------------------------------------------------------- title lettering
-
-function fitSize(ctx, text, maxW, startSize) {
-  let size = startSize;
-  ctx.font = `900 ${size}px ${TITLE_FONT}`;
-  while (size > 10 && ctx.measureText(text).width * 0.82 > maxW) {
-    size -= 2;
-    ctx.font = `900 ${size}px ${TITLE_FONT}`;
+function shrinkToFit(ctx, text, maxW, start) {
+  let size = start;
+  ctx.font = `900 ${size}px ${FONT}`;
+  while (size > 10 && ctx.measureText(text).width * 0.8 > maxW) {
+    size -= 4;
+    ctx.font = `900 ${size}px ${FONT}`;
   }
   return size;
 }
 
-function drawTitleLine(ctx, text, cx, cy, size, maxW, grade) {
-  const [c1, c2, c3] = TITLE_GRADIENTS[grade] || TITLE_GRADIENTS.sunset;
+function paintTitleLine(ctx, text, cx, cy, size, maxW, gradeName) {
+  const [c1, c2, c3] = gradeOf(gradeName).title;
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.scale(0.82, 1);
-  ctx.font = `900 ${size}px ${TITLE_FONT}`;
+  ctx.scale(0.8, 1);
+  ctx.font = `900 ${size}px ${FONT}`;
   if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const grad = ctx.createLinearGradient(-maxW / 2, 0, maxW / 2, 0);
-  grad.addColorStop(0, c1);
-  grad.addColorStop(0.5, c2);
-  grad.addColorStop(1, c3);
-  ctx.shadowColor = 'rgba(20,0,40,0.85)';
-  ctx.shadowBlur = size * 0.16;
+  const fill = ctx.createLinearGradient(-maxW / 2, 0, maxW / 2, 0);
+  fill.addColorStop(0, c1);
+  fill.addColorStop(0.5, c2);
+  fill.addColorStop(1, c3);
+  ctx.shadowColor = 'rgba(16,0,36,0.85)';
+  ctx.shadowBlur = size * 0.14;
   ctx.shadowOffsetY = size * 0.05;
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#1c0533';
-  ctx.lineWidth = Math.max(2, size * 0.09);
+  ctx.strokeStyle = '#16042e';
+  ctx.lineWidth = Math.max(2, size * 0.08);
   ctx.strokeText(text, 0, 0);
   ctx.shadowColor = 'transparent';
-  ctx.fillStyle = grad;
+  ctx.fillStyle = fill;
   ctx.fillText(text, 0, 0);
+  ctx.restore();
+  // A short gradient rule under the line, echoing the sunset.
+  const ruleW = Math.min(maxW * 0.42, size * 3.2);
+  const rule = ctx.createLinearGradient(cx - ruleW / 2, 0, cx + ruleW / 2, 0);
+  rule.addColorStop(0, c1);
+  rule.addColorStop(0.5, c2);
+  rule.addColorStop(1, c3);
+  ctx.save();
+  ctx.fillStyle = rule;
+  ctx.fillRect(cx - ruleW / 2, cy + size * 0.62, ruleW, Math.max(2, size * 0.05));
   ctx.restore();
 }
 
-function drawTitle(ctx, caption, subtitle, area, grade) {
+function paintTitle(ctx, caption, subtitle, area, gradeName) {
   const { x, y, w, h } = area;
-  const pad = w * 0.06;
-  const maxW = w - pad * 2;
-  let subY = y + h * 0.14;
+  const maxW = w * 0.88;
   if (subtitle) {
-    let subSize = Math.max(10, h * 0.13);
+    let subSize = Math.max(10, h * 0.12);
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const setSubFont = (s) => {
-      ctx.font = `700 ${s}px ${TITLE_FONT}`;
-      if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.max(2, s * 0.22)}px`;
+    const subFont = (s) => {
+      ctx.font = `700 ${s}px ${FONT}`;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.max(2, s * 0.2)}px`;
     };
-    setSubFont(subSize);
+    subFont(subSize);
     while (subSize > 8 && ctx.measureText(subtitle.toUpperCase()).width > maxW) {
       subSize -= 1;
-      setSubFont(subSize);
+      subFont(subSize);
     }
     ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = 'rgba(20,0,40,0.9)';
+    ctx.shadowColor = 'rgba(16,0,36,0.9)';
     ctx.shadowBlur = subSize * 0.25;
-    ctx.fillText(subtitle.toUpperCase(), x + w / 2, subY);
+    ctx.fillText(subtitle.toUpperCase(), x + w / 2, y + h * 0.12);
     ctx.restore();
   }
-  const top = subtitle ? y + h * 0.2 : y;
-  const availH = subtitle ? h * 0.8 : h;
-  const size = fitSize(ctx, caption.toUpperCase(), maxW, availH * 0.62);
-  if (size >= availH * 0.24 || !caption.includes(' ')) {
-    drawTitleLine(ctx, caption.toUpperCase(), x + w / 2, top + availH * 0.52, size, maxW, grade);
+  const top = subtitle ? y + h * 0.18 : y;
+  const roomH = subtitle ? h * 0.82 : h;
+  const words = caption.toUpperCase();
+  const size = shrinkToFit(ctx, words, maxW, roomH * 0.6);
+  if (size >= roomH * 0.26 || !words.includes(' ')) {
+    paintTitleLine(ctx, words, x + w / 2, top + roomH * 0.5, size, maxW, gradeName);
     return;
   }
-  const words = caption.toUpperCase().split(/\s+/);
-  let line1 = '';
-  let line2 = '';
-  for (const word of words) {
-    if ((line1 + ' ' + word).trim().length <= caption.length / 2 + 1) line1 = (line1 + ' ' + word).trim();
-    else line2 = (line2 + ' ' + word).trim();
+  // Two lines: split the words as evenly as possible.
+  const parts = words.split(/\s+/);
+  let first = '';
+  let second = '';
+  for (const word of parts) {
+    if ((first + ' ' + word).trim().length <= words.length / 2) first = (first + ' ' + word).trim();
+    else second = (second + ' ' + word).trim();
   }
-  if (!line2) line2 = line1.slice(Math.ceil(line1.length / 2));
-  const s2 = Math.min(fitSize(ctx, line1, maxW, availH * 0.4), fitSize(ctx, line2, maxW, availH * 0.4));
-  drawTitleLine(ctx, line1, x + w / 2, top + availH * 0.3, s2, maxW, grade);
-  drawTitleLine(ctx, line2, x + w / 2, top + availH * 0.72, s2, maxW, grade);
+  if (!second) {
+    second = first.slice(Math.ceil(first.length / 2));
+    first = first.slice(0, Math.ceil(first.length / 2));
+  }
+  const s2 = Math.min(
+    shrinkToFit(ctx, first, maxW, roomH * 0.38),
+    shrinkToFit(ctx, second, maxW, roomH * 0.38),
+  );
+  paintTitleLine(ctx, first, x + w / 2, top + roomH * 0.3, s2, maxW, gradeName);
+  paintTitleLine(ctx, second, x + w / 2, top + roomH * 0.7, s2, maxW, gradeName);
 }
 
-// ---------------------------------------------------------------- the whole cover
+// ------------------------------------------------------------ the cover
 
 /**
- * Paint the cover on ctx. Returns the panel rectangles (canvas pixels) so the
- * editor can hit-test clicks. `forExport` skips the selection ring, which is
- * only ever shown in the live preview.
+ * Paint the whole cover. Returns the panel rectangles (canvas pixels) so the
+ * editor can hit-test a click. `forExport` leaves out the selection ring,
+ * which only ever appears in the live preview.
  */
 export function renderCover(ctx, W, H, state, opts = {}) {
   const { layout, grade, caption, subtitle, panels, frame } = state;
   const forExport = !!opts.forExport;
   const framed = frame !== 'edge';
+  const gradeDef = gradeOf(grade);
 
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#2b1055');
-  bg.addColorStop(0.45, '#7b2ff7');
-  bg.addColorStop(0.72, '#ff2e88');
-  bg.addColorStop(1, '#ff7a18');
-  ctx.fillStyle = bg;
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  for (const [pos, colour] of gradeDef.sky) sky.addColorStop(pos, colour);
+  ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
-  const rects = panelRects(layout, W, H);
-  const borderW = Math.max(3, Math.round(W * 0.004));
+  const rects = layoutRects(layout, W, H, frame);
+  const border = Math.max(3, Math.round(W * 0.004));
 
   for (let i = 0; i < rects.length; i++) {
     const rect = rects[i];
@@ -357,71 +410,73 @@ export function renderCover(ctx, W, H, state, opts = {}) {
     ctx.beginPath();
     ctx.rect(rect.x, rect.y, rect.w, rect.h);
     ctx.clip();
-    if (panel && panel.img) drawPhoto(ctx, panel.img, rect, panel);
+    if (panel && panel.img) paintPhoto(ctx, panel.img, rect, panel);
     else {
-      ctx.fillStyle = '#3a1660';
+      ctx.fillStyle = '#341259';
       ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
     }
-    gradeOverlay(ctx, rect, grade);
+    gradePanel(ctx, rect, grade);
     ctx.restore();
     if (framed) {
       ctx.save();
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = borderW;
-      ctx.strokeRect(rect.x + borderW / 2, rect.y + borderW / 2, rect.w - borderW, rect.h - borderW);
+      ctx.lineWidth = border;
+      ctx.strokeRect(rect.x + border / 2, rect.y + border / 2, rect.w - border, rect.h - border);
       ctx.restore();
     }
     if (!forExport && state.selected === i) {
       ctx.save();
       ctx.strokeStyle = '#ffd319';
       ctx.lineWidth = Math.max(3, W * 0.005);
-      ctx.setLineDash([Math.max(8, W * 0.012), Math.max(6, W * 0.008)]);
-      ctx.strokeRect(rect.x - borderW, rect.y - borderW, rect.w + borderW * 2, rect.h + borderW * 2);
+      ctx.strokeRect(rect.x - border, rect.y - border, rect.w + border * 2, rect.h + border * 2);
+      ctx.strokeStyle = '#16042e';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(rect.x - border - 2, rect.y - border - 2, rect.w + border * 2 + 4, rect.h + border * 2 + 4);
       ctx.restore();
     }
   }
 
-  // One wash over everything, so the panels read as one poster.
+  // One last wash over the whole poster, so the panels read as one image.
   ctx.save();
-  ctx.globalAlpha = 0.12;
-  gradeOverlay(ctx, { x: 0, y: 0, w: W, h: H }, grade);
+  ctx.globalAlpha = 0.1;
+  gradePanel(ctx, { x: 0, y: 0, w: W, h: H }, grade);
   ctx.restore();
 
-  const palmColor = 'rgba(24,4,48,0.92)';
-  const margin = Math.max(8, Math.round(Math.min(W, H) * 0.022));
+  const palmInk = 'rgba(22,4,46,0.92)';
+  const { m } = spacing(W, H, frame);
   if (layout === 'grid') {
-    const cell = titleCellRect(W, H);
-    const cellGrad = ctx.createLinearGradient(cell.x, cell.y, cell.x, cell.y + cell.h);
-    cellGrad.addColorStop(0, '#ff2e88');
-    cellGrad.addColorStop(1, '#ff7a18');
+    const cell = titleCellRect(W, H, frame);
+    const cellFill = ctx.createLinearGradient(cell.x, cell.y, cell.x, cell.y + cell.h);
+    cellFill.addColorStop(0, '#ff2e88');
+    cellFill.addColorStop(1, '#ff7a18');
     ctx.save();
-    ctx.fillStyle = cellGrad;
+    ctx.fillStyle = cellFill;
     ctx.fillRect(cell.x, cell.y, cell.w, cell.h);
-    drawSun(ctx, cell.x + cell.w / 2, cell.y + cell.h * 0.42, cell.h * 0.34);
-    drawPalm(ctx, cell.x + cell.w * 0.06, cell.y + cell.h * 0.99, cell.h / 560, false, palmColor);
-    drawPalm(ctx, cell.x + cell.w * 0.94, cell.y + cell.h * 0.99, cell.h / 560, true, palmColor);
+    paintSun(ctx, cell.x + cell.w / 2, cell.y + cell.h * 0.4, cell.h * 0.3);
+    drawPalm(ctx, cell.x + cell.w * 0.05, cell.y + cell.h * 0.99, cell.h / 600, false, palmInk);
+    drawPalm(ctx, cell.x + cell.w * 0.95, cell.y + cell.h * 0.99, cell.h / 600, true, palmInk);
     ctx.restore();
     if (framed) {
       ctx.save();
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = borderW;
-      ctx.strokeRect(cell.x + borderW / 2, cell.y + borderW / 2, cell.w - borderW, cell.h - borderW);
+      ctx.lineWidth = border;
+      ctx.strokeRect(cell.x + border / 2, cell.y + border / 2, cell.w - border, cell.h - border);
       ctx.restore();
     }
-    drawTitle(ctx, caption, subtitle, { x: cell.x, y: cell.y + cell.h * 0.3, w: cell.w, h: cell.h * 0.66 }, grade);
+    paintTitle(ctx, caption, subtitle, { x: cell.x, y: cell.y + cell.h * 0.28, w: cell.w, h: cell.h * 0.68 }, grade);
   } else {
     const bandH = Math.round(H * 0.2);
-    const bandY = H - margin - bandH;
+    const bandY = H - m - bandH;
     const scrim = ctx.createLinearGradient(0, bandY - bandH * 0.5, 0, H);
-    scrim.addColorStop(0, 'rgba(20,0,40,0)');
-    scrim.addColorStop(1, 'rgba(20,0,40,0.62)');
+    scrim.addColorStop(0, 'rgba(16,0,36,0)');
+    scrim.addColorStop(1, 'rgba(16,0,36,0.6)');
     ctx.fillStyle = scrim;
     ctx.fillRect(0, bandY - bandH * 0.5, W, H - bandY + bandH * 0.5);
-    drawSun(ctx, W / 2, bandY + bandH * 0.55, bandH * 0.95);
-    const palmS = bandH / 175;
-    drawPalm(ctx, W * 0.008, H - margin + 4, palmS, false, palmColor);
-    drawPalm(ctx, W * 0.992, H - margin + 4, palmS, true, palmColor);
-    drawTitle(ctx, caption, subtitle, { x: W * 0.14, y: bandY, w: W * 0.72, h: bandH }, grade);
+    paintSun(ctx, W / 2, bandY + bandH * 0.55, bandH * 0.9);
+    const palmScale = bandH / 185;
+    drawPalm(ctx, W * 0.01, H - m + 4, palmScale, false, palmInk);
+    drawPalm(ctx, W * 0.99, H - m + 4, palmScale, true, palmInk);
+    paintTitle(ctx, caption, subtitle, { x: W * 0.14, y: bandY, w: W * 0.72, h: bandH }, grade);
   }
 
   return { rects };

@@ -1,7 +1,21 @@
-// ?shot= scenes used for the entry's screenshots: ?shot=editor shows the
-// full app with a sample photo loaded; ?shot=cover shows the cover on its own
-// at export size. Query params: photo=boulevard|pier, caption, subtitle,
-// layout, grade, frame, size. Sets window.__shotReady once the scene is painted.
+// Screenshot scenes for the entry, driven by the page's query string:
+// ?shot=editor shows the full editor with a sample photo loaded;
+// ?shot=cover shows the cover on its own at export size.
+// Supported params: photo (boulevard|pier), caption, subtitle, layout,
+// grade, frame, size. Signals window.__shotReady once the scene is painted.
+
+const SCENE_PARAMS = [
+  ['photo', async (api, value) => {
+    const img = await api.loadSample(value);
+    api.state.panels = api.state.panels.map(() => ({ img, px: 0, py: 0, z: 1 }));
+  }],
+  ['caption', (api, value) => api.setCaption(value)],
+  ['subtitle', (api, value) => api.setSubtitle(value)],
+  ['layout', (api, value) => api.setLayout(value)],
+  ['grade', (api, value) => api.setGrade(value)],
+  ['frame', (api, value) => api.setFrame(value)],
+  ['size', (api, value) => api.setSize(value)],
+];
 
 export async function initShots(api) {
   const params = new URLSearchParams(location.search);
@@ -12,31 +26,19 @@ export async function initShots(api) {
   }
   await api.ready;
 
-  const photo = params.get('photo');
-  if (photo) {
+  for (const [name, apply] of SCENE_PARAMS) {
+    const value = params.get(name);
+    if (value === null) continue;
     try {
-      const img = await api.loadSample(photo);
-      api.state.panels = api.state.panels.map(() => ({ img, ox: 0, oy: 0, zoom: 1 }));
+      await apply(api, value);
     } catch {
-      // keep whatever photos the app already loaded
+      // A bad scene param never blocks the shot; keep the app's defaults.
     }
   }
-  const caption = params.get('caption');
-  if (caption !== null) api.setCaption(caption);
-  const subtitle = params.get('subtitle');
-  if (subtitle !== null) api.setSubtitle(subtitle);
-  const layout = params.get('layout');
-  if (layout) api.setLayout(layout);
-  const grade = params.get('grade');
-  if (grade) api.setGrade(grade);
-  const frame = params.get('frame');
-  if (frame) api.setFrame(frame);
-  const size = params.get('size');
-  if (size) api.setSize(size);
 
   if (shot === 'cover') document.body.classList.add('shot-cover');
   api.render();
-  // Give the canvas a frame to paint before the screenshot lands.
+  // Let the canvas paint before the screenshot is taken.
   requestAnimationFrame(() => requestAnimationFrame(() => {
     window.__shotReady = true;
   }));
